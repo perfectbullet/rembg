@@ -223,6 +223,26 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
             media_type="image/png",
         )
 
+    def validate_image_file(file: UploadFile) -> None:
+        """Validate that uploaded file is a supported image format."""
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported image format. Supported formats: PNG, JPG, JPEG"
+            )
+
+    def get_or_create_session(model: str) -> BaseSession:
+        """Get existing session or create a new one for the specified model."""
+        session_obj = sessions.get(model)
+        if session_obj is None:
+            session_obj = new_session(model)
+            sessions[model] = session_obj
+        return session_obj
+
     @app.on_event("startup")
     def startup():
         try:
@@ -306,26 +326,13 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
         Replace image background with green screen color (0, 255, 0, 255).
         Supports PNG, JPG, and JPEG image formats.
         """
-        # Validate file format
-        if not file.content_type or not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported image format. Supported formats: PNG, JPG, JPEG"
-            )
-
+        validate_image_file(file)
         content = await file.read()
         
         # Green screen color: (R=0, G=255, B=0, A=255)
         green_bgcolor = (0, 255, 0, 255)
         
-        session_obj = sessions.get(model)
-        if session_obj is None:
-            session_obj = new_session(model)
-            sessions[model] = session_obj
+        session_obj = get_or_create_session(model)
 
         result = await asyncify(remove)(
             content,
@@ -404,26 +411,13 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
         Supports PNG, JPG, and JPEG image formats.
         Example: For blue background, use red=0, green=0, blue=255
         """
-        # Validate file format
-        if not file.content_type or not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
-        if file.content_type not in allowed_types:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported image format. Supported formats: PNG, JPG, JPEG"
-            )
-
+        validate_image_file(file)
         content = await file.read()
         
         # Custom color with full opacity (alpha=255)
         custom_bgcolor = (red, green, blue, 255)
         
-        session_obj = sessions.get(model)
-        if session_obj is None:
-            session_obj = new_session(model)
-            sessions[model] = session_obj
+        session_obj = get_or_create_session(model)
 
         result = await asyncify(remove)(
             content,
