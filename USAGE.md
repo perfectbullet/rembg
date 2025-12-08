@@ -70,10 +70,20 @@ output = remove(input, post_process_mask=True)
 
 ### Replacing the background color
 
-You can use the `bgcolor` argument to replace the background color.
+You can use the `bgcolor` argument to replace the background color. The color is specified as an RGBA tuple (Red, Green, Blue, Alpha), where each value is 0-255.
 
 ```python
+# White background
 output = remove(input, bgcolor=(255, 255, 255, 255))
+
+# Green screen (perfect for video production)
+output = remove(input, bgcolor=(0, 255, 0, 255))
+
+# Blue background
+output = remove(input, bgcolor=(0, 0, 255, 255))
+
+# Red background
+output = remove(input, bgcolor=(255, 0, 0, 255))
 ```
 
 ### Using input points

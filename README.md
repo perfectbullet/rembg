@@ -184,18 +184,36 @@ Used to start http server.
 rembg s --host 0.0.0.0 --port 7000 --log_level info
 ```
 
-To see the complete endpoints documentation, go to: `http://localhost:7000/api`.
+To see the complete endpoints documentation, go to:
+- Swagger UI: `http://localhost:7000/api`
+- ReDoc: `http://localhost:7000/redoc`
 
-Remove the background from an image url
+#### Remove the background from an image url
 
 ```shell
 curl -s "http://localhost:7000/api/remove?url=http://input.png" -o output.png
 ```
 
-Remove the background from an uploaded image
+#### Remove the background from an uploaded image
 
 ```shell
 curl -s -F file=@/path/to/input.jpg "http://localhost:7000/api/remove"  -o output.png
+```
+
+#### Replace background with green screen (perfect for video production)
+
+```shell
+curl -s -F file=@/path/to/input.jpg "http://localhost:7000/api/greenscreen" -o greenscreen.png
+```
+
+#### Replace background with custom color
+
+```shell
+# Blue background (R=0, G=0, B=255)
+curl -s -F file=@/path/to/input.jpg -F red=0 -F green=0 -F blue=255 "http://localhost:7000/api/replace-background" -o blue_bg.png
+
+# Red background (R=255, G=0, B=0)
+curl -s -F file=@/path/to/input.jpg -F red=255 -F green=0 -F blue=0 "http://localhost:7000/api/replace-background" -o red_bg.png
 ```
 
 ### rembg `b`
