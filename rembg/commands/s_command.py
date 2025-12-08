@@ -8,7 +8,7 @@ import click
 import gradio as gr
 import uvicorn
 from asyncer import asyncify
-from fastapi import Depends, FastAPI, File, Form, Query
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
@@ -72,10 +72,14 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
                 "url": "https://github.com/danielgatis/rembg",
             },
         },
+        {
+            "name": "Green Screen",
+            "description": "Endpoints for replacing image background with green or custom colors (ideal for video production).",
+        },
     ]
     app = FastAPI(
-        title="Rembg",
-        description="Rembg is a tool to remove images background. That is it.",
+        title="Rembg API",
+        description="Rembg is a powerful tool to remove image backgrounds and replace them with custom colors. Perfect for video production, photo editing, and more.",
         version=get_versions()["version"],
         contact={
             "name": "Daniel Gatis",
@@ -88,6 +92,7 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
         },
         openapi_tags=tags_metadata,
         docs_url="/api",
+        redoc_url="/redoc",
     )
 
     app.add_middleware(
@@ -263,6 +268,183 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
     ):
         return await asyncify(im_without_bg)(file, commons)  # type: ignore
 
+    @app.post(
+        path="/api/greenscreen",
+        tags=["Green Screen"],
+        summary="Replace Background with Green Screen",
+        description="Removes the background and replaces it with green color (0, 255, 0). Perfect for video production and chroma keying.",
+    )
+    async def greenscreen(
+        file: UploadFile = File(
+            default=...,
+            description="Image file (PNG, JPG, JPEG) to process.",
+        ),
+        model: str = Form(
+            description="Model to use when processing image",
+            regex=r"(" + "|".join(sessions_names) + ")",
+            default="u2net",
+        ),
+        a: bool = Form(default=False, description="Enable Alpha Matting"),
+        af: int = Form(
+            default=240,
+            ge=0,
+            le=255,
+            description="Alpha Matting (Foreground Threshold)",
+        ),
+        ab: int = Form(
+            default=10,
+            ge=0,
+            le=255,
+            description="Alpha Matting (Background Threshold)",
+        ),
+        ae: int = Form(
+            default=10, ge=0, description="Alpha Matting (Erode Structure Size)"
+        ),
+        ppm: bool = Form(default=False, description="Post Process Mask"),
+    ):
+        """
+        Replace image background with green screen color (0, 255, 0, 255).
+        Supports PNG, JPG, and JPEG image formats.
+        """
+        # Validate file format
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported image format. Supported formats: PNG, JPG, JPEG"
+            )
+
+        content = await file.read()
+        
+        # Green screen color: (R=0, G=255, B=0, A=255)
+        green_bgcolor = (0, 255, 0, 255)
+        
+        session_obj = sessions.get(model)
+        if session_obj is None:
+            session_obj = new_session(model)
+            sessions[model] = session_obj
+
+        result = await asyncify(remove)(
+            content,
+            session=session_obj,
+            alpha_matting=a,
+            alpha_matting_foreground_threshold=af,
+            alpha_matting_background_threshold=ab,
+            alpha_matting_erode_size=ae,
+            only_mask=False,
+            post_process_mask=ppm,
+            bgcolor=green_bgcolor,
+        )
+        
+        return Response(
+            result,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": f"attachment; filename=greenscreen_{file.filename}"
+            }
+        )
+
+    @app.post(
+        path="/api/replace-background",
+        tags=["Green Screen"],
+        summary="Replace Background with Custom Color",
+        description="Removes the background and replaces it with a custom RGB color. Specify color as three integers (R, G, B) each in range 0-255.",
+    )
+    async def replace_background(
+        file: UploadFile = File(
+            default=...,
+            description="Image file (PNG, JPG, JPEG) to process.",
+        ),
+        red: int = Form(
+            default=0,
+            ge=0,
+            le=255,
+            description="Red color component (0-255)",
+        ),
+        green: int = Form(
+            default=255,
+            ge=0,
+            le=255,
+            description="Green color component (0-255)",
+        ),
+        blue: int = Form(
+            default=0,
+            ge=0,
+            le=255,
+            description="Blue color component (0-255)",
+        ),
+        model: str = Form(
+            description="Model to use when processing image",
+            regex=r"(" + "|".join(sessions_names) + ")",
+            default="u2net",
+        ),
+        a: bool = Form(default=False, description="Enable Alpha Matting"),
+        af: int = Form(
+            default=240,
+            ge=0,
+            le=255,
+            description="Alpha Matting (Foreground Threshold)",
+        ),
+        ab: int = Form(
+            default=10,
+            ge=0,
+            le=255,
+            description="Alpha Matting (Background Threshold)",
+        ),
+        ae: int = Form(
+            default=10, ge=0, description="Alpha Matting (Erode Structure Size)"
+        ),
+        ppm: bool = Form(default=False, description="Post Process Mask"),
+    ):
+        """
+        Replace image background with any custom RGB color.
+        Supports PNG, JPG, and JPEG image formats.
+        Example: For blue background, use red=0, green=0, blue=255
+        """
+        # Validate file format
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        allowed_types = ["image/png", "image/jpeg", "image/jpg"]
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Unsupported image format. Supported formats: PNG, JPG, JPEG"
+            )
+
+        content = await file.read()
+        
+        # Custom color with full opacity (alpha=255)
+        custom_bgcolor = (red, green, blue, 255)
+        
+        session_obj = sessions.get(model)
+        if session_obj is None:
+            session_obj = new_session(model)
+            sessions[model] = session_obj
+
+        result = await asyncify(remove)(
+            content,
+            session=session_obj,
+            alpha_matting=a,
+            alpha_matting_foreground_threshold=af,
+            alpha_matting_background_threshold=ab,
+            alpha_matting_erode_size=ae,
+            only_mask=False,
+            post_process_mask=ppm,
+            bgcolor=custom_bgcolor,
+        )
+        
+        return Response(
+            result,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": f"attachment; filename=custom_bg_{file.filename}"
+            }
+        )
+
     def gr_app(app):
         def inference(input_path, model, *args):
             output_path = "output.png"
@@ -316,7 +498,10 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
         return app
 
     print(
-        f"To access the API documentation, go to http://{'localhost' if host == '0.0.0.0' else host}:{port}/api"
+        f"To access the Swagger UI documentation, go to http://{'localhost' if host == '0.0.0.0' else host}:{port}/api"
+    )
+    print(
+        f"To access the ReDoc documentation, go to http://{'localhost' if host == '0.0.0.0' else host}:{port}/redoc"
     )
     print(
         f"To access the UI, go to http://{'localhost' if host == '0.0.0.0' else host}:{port}"
