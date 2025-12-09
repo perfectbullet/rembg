@@ -3,15 +3,32 @@
 # PUBLIC_PORT=7000:7000
 # REPLICAS_COUNT=1
 
-version: '3'
+name: rembg_service
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile_nvidia_cuda_cudnn_gpu
+    image: rembg-app:v2-nvidia
     command: ["s"]
     deploy:
       replicas: ${REPLICAS_COUNT:-1}
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./rembg:/rembg/rembg  # 挂载当前目录到容器的 /rembg/rembg 目录, 挂载 rembg 根目录无法启动，可能是没有安装的缘故
+      - models:/root/.u2net  # 持久化模型缓存
     ports:
       - ${PUBLIC_PORT:-7000:7000}
+
+volumes:
+  models:  # 命名卷用于存储下载的模型文件

@@ -66,7 +66,7 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
     tags_metadata = [
         {
             "name": "Background Removal",
-            "description": "Endpoints that perform background removal with different image sources.",
+            "description": "支持不同图像来源的背景移除接口。",
             "externalDocs": {
                 "description": "GitHub Source",
                 "url": "https://github.com/danielgatis/rembg",
@@ -75,16 +75,16 @@ def s_command(port: int, host: str, log_level: str, threads: int) -> None:
     ]
     app = FastAPI(
         title="Rembg",
-        description="Rembg is a tool to remove images background. That is it.",
+        description="Rembg 是一款用于移除图像背景的工具，仅此而已。",
         version=get_versions()["version"],
         contact={
-            "name": "Daniel Gatis",
-            "url": "https://github.com/danielgatis",
-            "email": "danielgatis@gmail.com",
+            "name": "perfectbullet",
+            "url": "https://github.com/perfectbullet/rembg",
+            "email": "121531845@qq.com",
         },
         license_info={
             "name": "MIT License",
-            "url": "https://github.com/danielgatis/rembg/blob/main/LICENSE.txt",
+            "url": "https://github.com/perfectbullet/rembg/blob/main/LICENSE.txt",
         },
         openapi_tags=tags_metadata,
         docs_url="/api",
